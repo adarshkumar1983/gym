@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { auth } from '../lib/better-auth';
+import { getAuth } from '../lib/better-auth';
 import { UserProfile } from '../models/UserProfile.model';
 
 // Extend Express Request to include session
@@ -38,7 +38,7 @@ export const requireAuth = async (
 ) => {
   try {
     // Get session from Better Auth
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getAuth().api.getSession({ headers: req.headers });
     
     if (!session || !session.user) {
       return res.status(401).json({
@@ -96,7 +96,7 @@ export const requireAuth = async (
 export const requireRole = (...roles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const session = await auth.api.getSession({ headers: req.headers });
+      const session = await getAuth().api.getSession({ headers: req.headers });
       
       if (!session || !session.user) {
         return res.status(401).json({
@@ -160,7 +160,7 @@ export const optionalAuth = async (
   next: NextFunction
 ) => {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getAuth().api.getSession({ headers: req.headers });
     if (session) {
       // Attach session to request (convert null role to undefined)
       req.session = {

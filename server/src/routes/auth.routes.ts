@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../lib/better-auth';
+import { getAuth } from '../lib/better-auth';
 import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -10,7 +10,7 @@ const router = Router();
  */
 router.get('/session', requireAuth, async (req, res) => {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getAuth().api.getSession({ headers: req.headers });
     
     if (!session) {
       return res.status(401).json({
@@ -40,7 +40,7 @@ router.get('/session', requireAuth, async (req, res) => {
  */
 router.get('/me', requireAuth, async (req, res) => {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await getAuth().api.getSession({ headers: req.headers });
     
     if (!session) {
       return res.status(401).json({

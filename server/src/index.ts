@@ -9,8 +9,10 @@ import mongoose from 'mongoose';
 // Load environment variables
 dotenv.config();
 
-// Import Better Auth
-import { auth } from './lib/better-auth';
+// Import Better Auth factory
+import { createAuth } from './lib/better-auth';
+
+let auth: ReturnType<typeof createAuth>;
 
 // Import custom routes
 import authRoutes from './routes/auth.routes';
@@ -49,11 +51,30 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Better Auth routes (handles all auth endpoints)
-app.use(auth.handler);
-
-// Custom API Routes
+// Custom API Routes (mount FIRST - these take precedence)
 app.use('/api/auth', authRoutes); // Custom auth endpoints (session, me)
+
+// Better Auth routes (handles all other /api/auth/* routes that custom routes don't handle)
+// Use toNodeHandler for proper Express integration - this will be set after auth is initialized
+let betterAuthHandler: ((req: any, res: any, next?: any) => Promise<void>) | null = null;
+
+app.use('/api/auth', async (req, res, next) => {
+  // If custom routes already handled this request, skip
+  if (res.headersSent) {
+    return;
+  }
+  
+  // If Better Auth handler is not initialized yet, wait or return error
+  if (!betterAuthHandler) {
+    return res.status(503).json({
+      success: false,
+      error: { message: 'Better Auth not initialized yet' }
+    });
+  }
+  
+  // Use Better Auth's Node.js handler
+  return betterAuthHandler(req, res, next);
+});
 app.use('/api/users', userRoutes); // User profile management
 
 // API Routes (protected routes will use requireAuth middleware)
@@ -66,7 +87,7 @@ app.use('/api/payments', (_req, res) => res.json({ message: 'Payment routes - co
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Connect to MongoDB
+// Connect to MongoDB and initialize Better Auth
 const connectDB = async () => {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gym_db';
@@ -79,6 +100,18 @@ const connectDB = async () => {
     await mongoose.connect(mongoURI, options);
     console.log('✅ MongoDB connected successfully');
     console.log(`📊 Database: ${mongoose.connection.name}`);
+    
+    // Initialize Better Auth after MongoDB is connected
+    const { setAuth } = await import('./lib/better-auth');
+    auth = createAuth();
+    setAuth(auth);
+    
+    // Create Express handler using Better Auth's Node.js integration
+    // Dynamic import to avoid TypeScript issues
+    const { toNodeHandler } = await import('better-auth/node');
+    betterAuthHandler = toNodeHandler(auth);
+    
+    console.log('✅ Better Auth initialized successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
