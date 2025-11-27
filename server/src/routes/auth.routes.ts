@@ -9,16 +9,23 @@ const router = Router();
  * GET /api/auth/session
  */
 router.get('/session', requireAuth, async (req, res) => {
+  console.log(`🔵 [Custom Route] GET /api/auth/session`);
+  console.log(`   Headers:`, JSON.stringify(req.headers, null, 2));
+  
   try {
     const session = await getAuth().api.getSession({ headers: req.headers });
     
+    console.log(`   Session result:`, session ? 'Found' : 'Not found');
+    
     if (!session) {
+      console.warn(`   ⚠️ No active session`);
       return res.status(401).json({
         success: false,
         error: { message: 'No active session' }
       });
     }
 
+    console.log(`   ✅ Session found for user:`, session.user?.email);
     return res.json({
       success: true,
       data: {
@@ -27,6 +34,8 @@ router.get('/session', requireAuth, async (req, res) => {
       }
     });
   } catch (error: any) {
+    console.error(`   ❌ Error:`, error.message);
+    console.error(`   Stack:`, error.stack);
     return res.status(500).json({
       success: false,
       error: { message: error.message }

@@ -31,16 +31,25 @@ import { notFoundHandler } from './middleware/notFound.middleware';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middleware (order matters!)
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    process.env.MOBILE_APP_URL || 'http://localhost:19006',
+    'http://localhost:3000',
+    'exp://localhost:8081',
+    /^exp:\/\/.*\.exp\.direct$/,
+  ],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie'],
 }));
 app.use(compression()); // Compress responses
 app.use(morgan('dev')); // Logging
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
+// Better Auth handler will be initialized and mounted after MongoDB connects
+let betterAuthHandler: ((req: any, res: any, next?: any) => Promise<void>) | null = null;
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
@@ -51,20 +60,14 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Custom API Routes (mount FIRST - these take precedence)
-app.use('/api/auth', authRoutes); // Custom auth endpoints (session, me)
+// Custom API Routes (mount BEFORE Better Auth handler so they take precedence)
+// These handle /session and /me endpoints
+app.use('/api/auth', authRoutes);
 
-// Better Auth routes (handles all other /api/auth/* routes that custom routes don't handle)
-// Use toNodeHandler for proper Express integration - this will be set after auth is initialized
-let betterAuthHandler: ((req: any, res: any, next?: any) => Promise<void>) | null = null;
-
-app.use('/api/auth', async (req, res, next) => {
-  // If custom routes already handled this request, skip
-  if (res.headersSent) {
-    return;
-  }
-  
-  // If Better Auth handler is not initialized yet, wait or return error
+// Mount Better Auth handler - handles routes like /sign-up, /sign-in, /sign-out
+// CRITICAL: Must be mounted BEFORE express.json() per Better Auth docs
+// Better Auth handles body parsing internally for its routes
+app.all('/api/auth/*', async (req, res, next) => {
   if (!betterAuthHandler) {
     return res.status(503).json({
       success: false,
@@ -72,9 +75,22 @@ app.use('/api/auth', async (req, res, next) => {
     });
   }
   
-  // Use Better Auth's Node.js handler
-  return betterAuthHandler(req, res, next);
+  // Call Better Auth handler - it handles routing and body parsing internally
+  // When mounted at /api/auth/*, req.path becomes /sign-up (relative)
+  // Better Auth knows its basePath is /api/auth, so it matches correctly
+  try {
+    return await betterAuthHandler(req, res, next);
+  } catch (error) {
+    console.error('[Better Auth Handler Error]', error);
+    return next(error);
+  }
 });
+
+// Parse JSON bodies AFTER Better Auth handler (for other routes only)
+// Per Better Auth docs: "Don't use express.json() before the Better Auth handler"
+app.use(express.json()); // Parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+
 app.use('/api/users', userRoutes); // User profile management
 
 // API Routes (protected routes will use requireAuth middleware)
@@ -112,6 +128,9 @@ const connectDB = async () => {
     betterAuthHandler = toNodeHandler(auth);
     
     console.log('✅ Better Auth initialized successfully');
+    console.log(`   Handler type: ${typeof betterAuthHandler}`);
+    console.log(`   Auth config basePath: /api/auth`);
+    console.log(`   ✅ Better Auth handler mounted at /api/auth/*`);
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);

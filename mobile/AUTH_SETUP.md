@@ -64,11 +64,13 @@ Edit `lib/config.ts` to change the default API URL.
 
 ## API Endpoints Used
 
-- `POST /api/auth/sign-up` - User registration
-- `POST /api/auth/sign-in` - User login
+- `POST /api/auth/sign-up/email` - User registration (Better Auth v1.4.1)
+- `POST /api/auth/sign-in/email` - User login (Better Auth v1.4.1)
 - `POST /api/auth/sign-out` - User logout
 - `GET /api/auth/session` - Get current session
 - `GET /api/auth/me` - Get current user with profile
+
+**Note:** Better Auth v1.4.1 uses `/sign-up/email` and `/sign-in/email` endpoints instead of `/sign-up` and `/sign-in`.
 
 ## Troubleshooting
 

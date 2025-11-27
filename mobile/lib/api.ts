@@ -21,11 +21,26 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
+    // Ensure Origin header is set for Better Auth endpoints
+    if (config.url?.includes('/api/auth/')) {
+      if (!config.headers['Origin']) {
+        config.headers['Origin'] = API_BASE_URL;
+      }
+    }
+    
+    console.log(`📤 [API Request] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`   Base URL: ${config.baseURL}`);
+    console.log(`   Full URL: ${config.baseURL}${config.url}`);
+    console.log(`   Headers:`, JSON.stringify(config.headers, null, 2));
+    console.log(`   Data:`, config.data ? JSON.stringify(config.data, null, 2) : 'No data');
+    console.log(`   With Credentials: ${config.withCredentials}`);
+    
     // For mobile, cookies are handled automatically by axios with withCredentials
     // But we can also store session info if needed
     return config;
   },
   (error) => {
+    console.error(`❌ [API Request Error]`, error);
     return Promise.reject(error);
   }
 );
@@ -33,16 +48,28 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
+    console.log(`📥 [API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    console.log(`   Status: ${response.status} ${response.statusText}`);
+    console.log(`   Headers:`, JSON.stringify(response.headers, null, 2));
+    console.log(`   Data:`, JSON.stringify(response.data, null, 2));
+    
     // Store cookies if needed (for better-auth session management)
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
+      console.log(`   🍪 Set-Cookie header found:`, setCookie);
       // Cookies are automatically handled by axios with withCredentials: true
       // But we can store session info for persistence
     }
     return response;
   },
   async (error) => {
+    console.error(`❌ [API Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+    console.error(`   Status: ${error.response?.status} ${error.response?.statusText}`);
+    console.error(`   Response Data:`, error.response?.data ? JSON.stringify(error.response.data, null, 2) : 'No data');
+    console.error(`   Error Message:`, error.message);
+    
     if (error.response?.status === 401) {
+      console.warn(`   ⚠️ Unauthorized - clearing auth token`);
       // Clear any stored auth data on unauthorized
       await SecureStore.deleteItemAsync('auth_token');
     }
@@ -80,13 +107,27 @@ export interface AuthResponse {
 // Auth API functions
 export const authAPI = {
   signUp: async (data: SignUpData): Promise<AuthResponse> => {
-    const response = await apiClient.post('/api/auth/sign-up', data);
+    // Better Auth v1.4.1 uses /sign-up/email endpoint (NOT /sign-up)
+    console.log(`[authAPI.signUp] Calling /api/auth/sign-up/email`);
+    const response = await apiClient.post('/api/auth/sign-up/email', data, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': API_BASE_URL, // Better Auth requires Origin header
+      },
+    });
     return response.data;
   },
 
   signIn: async (data: SignInData): Promise<AuthResponse> => {
-    const response = await apiClient.post('/api/auth/sign-in', data, {
+    // Better Auth v1.4.1 uses /sign-in/email endpoint (NOT /sign-in)
+    console.log(`[authAPI.signIn] Calling /api/auth/sign-in/email`);
+    const response = await apiClient.post('/api/auth/sign-in/email', data, {
       withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': API_BASE_URL, // Better Auth requires Origin header
+      },
     });
     
     // Store session cookie/token if provided
@@ -100,7 +141,12 @@ export const authAPI = {
   },
 
   signOut: async (): Promise<void> => {
-    await apiClient.post('/api/auth/sign-out');
+    console.log(`[authAPI.signOut] Calling /api/auth/sign-out`);
+    await apiClient.post('/api/auth/sign-out', {}, {
+      headers: {
+        'Origin': API_BASE_URL, // Better Auth requires Origin header
+      },
+    });
     await SecureStore.deleteItemAsync('auth_token');
   },
 
