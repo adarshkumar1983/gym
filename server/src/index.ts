@@ -64,7 +64,61 @@ app.get('/health', (_req, res) => {
 // These handle /session and /me endpoints
 app.use('/api/auth', authRoutes);
 
-// Mount Better Auth handler - handles routes like /sign-up, /sign-in, /sign-out
+// Redirect old Better Auth endpoints to new v1.4.1 endpoints (backward compatibility)
+// This handles cases where mobile app or other clients still use old endpoints
+app.post('/api/auth/sign-up', async (req, res, next) => {
+  console.warn(`⚠️ [Server] Old endpoint /api/auth/sign-up called, redirecting to /api/auth/sign-up/email`);
+  
+  if (!betterAuthHandler) {
+    return res.status(503).json({
+      success: false,
+      error: { message: 'Better Auth not initialized yet' }
+    });
+  }
+  
+  // Modify request to use new endpoint and pass directly to Better Auth handler
+  // Note: req.path is read-only, so we only modify req.url
+  const originalUrl = req.url;
+  const originalOriginalUrl = req.originalUrl;
+  req.url = '/api/auth/sign-up/email';
+  req.originalUrl = '/api/auth/sign-up/email';
+  
+  try {
+    return await betterAuthHandler(req, res, next);
+  } finally {
+    // Restore original values
+    req.url = originalUrl;
+    req.originalUrl = originalOriginalUrl;
+  }
+});
+
+app.post('/api/auth/sign-in', async (req, res, next) => {
+  console.warn(`⚠️ [Server] Old endpoint /api/auth/sign-in called, redirecting to /api/auth/sign-in/email`);
+  
+  if (!betterAuthHandler) {
+    return res.status(503).json({
+      success: false,
+      error: { message: 'Better Auth not initialized yet' }
+    });
+  }
+  
+  // Modify request to use new endpoint and pass directly to Better Auth handler
+  // Note: req.path is read-only, so we only modify req.url
+  const originalUrl = req.url;
+  const originalOriginalUrl = req.originalUrl;
+  req.url = '/api/auth/sign-in/email';
+  req.originalUrl = '/api/auth/sign-in/email';
+  
+  try {
+    return await betterAuthHandler(req, res, next);
+  } finally {
+    // Restore original values
+    req.url = originalUrl;
+    req.originalUrl = originalOriginalUrl;
+  }
+});
+
+// Mount Better Auth handler - handles routes like /sign-up/email, /sign-in/email, /sign-out
 // CRITICAL: Must be mounted BEFORE express.json() per Better Auth docs
 // Better Auth handles body parsing internally for its routes
 app.all('/api/auth/*', async (req, res, next) => {
@@ -76,7 +130,7 @@ app.all('/api/auth/*', async (req, res, next) => {
   }
   
   // Call Better Auth handler - it handles routing and body parsing internally
-  // When mounted at /api/auth/*, req.path becomes /sign-up (relative)
+  // When mounted at /api/auth/*, req.path becomes /sign-up/email (relative)
   // Better Auth knows its basePath is /api/auth, so it matches correctly
   try {
     return await betterAuthHandler(req, res, next);

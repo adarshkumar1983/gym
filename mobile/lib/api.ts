@@ -21,8 +21,21 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
+    // Fix old Better Auth endpoints to use new v1.4.1 endpoints
+    if (config.url === '/api/auth/sign-up' && config.method?.toLowerCase() === 'post') {
+      console.warn(`⚠️ [API Interceptor] Redirecting old endpoint /api/auth/sign-up to /api/auth/sign-up/email`);
+      config.url = '/api/auth/sign-up/email';
+    }
+    if (config.url === '/api/auth/sign-in' && config.method?.toLowerCase() === 'post') {
+      console.warn(`⚠️ [API Interceptor] Redirecting old endpoint /api/auth/sign-in to /api/auth/sign-in/email`);
+      config.url = '/api/auth/sign-in/email';
+    }
+    
     // Ensure Origin header is set for Better Auth endpoints
     if (config.url?.includes('/api/auth/')) {
+      if (!config.headers) {
+        config.headers = {} as any;
+      }
       if (!config.headers['Origin']) {
         config.headers['Origin'] = API_BASE_URL;
       }
@@ -109,35 +122,109 @@ export const authAPI = {
   signUp: async (data: SignUpData): Promise<AuthResponse> => {
     // Better Auth v1.4.1 uses /sign-up/email endpoint (NOT /sign-up)
     console.log(`[authAPI.signUp] Calling /api/auth/sign-up/email`);
-    const response = await apiClient.post('/api/auth/sign-up/email', data, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': API_BASE_URL, // Better Auth requires Origin header
-      },
-    });
-    return response.data;
+    try {
+      const response = await apiClient.post('/api/auth/sign-up/email', data, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': API_BASE_URL, // Better Auth requires Origin header
+        },
+      });
+      
+      // Better Auth returns { token, user } format, normalize to our expected format
+      const betterAuthResponse = response.data;
+      if (betterAuthResponse.user) {
+        return {
+          success: true,
+          data: {
+            user: betterAuthResponse.user,
+            session: betterAuthResponse.token ? { token: betterAuthResponse.token } : undefined,
+          },
+        };
+      }
+      
+      // If response doesn't match expected format, check for error
+      if (betterAuthResponse.error || betterAuthResponse.message) {
+        return {
+          success: false,
+          error: {
+            message: betterAuthResponse.error?.message || betterAuthResponse.message || 'Registration failed',
+          },
+        };
+      }
+      
+      // Unknown format
+      return {
+        success: false,
+        error: { message: 'Unexpected response format' },
+      };
+    } catch (error: any) {
+      // Handle axios errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Registration failed',
+          },
+        };
+      }
+      throw error; // Re-throw if it's not an axios error
+    }
   },
 
   signIn: async (data: SignInData): Promise<AuthResponse> => {
     // Better Auth v1.4.1 uses /sign-in/email endpoint (NOT /sign-in)
     console.log(`[authAPI.signIn] Calling /api/auth/sign-in/email`);
-    const response = await apiClient.post('/api/auth/sign-in/email', data, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': API_BASE_URL, // Better Auth requires Origin header
-      },
-    });
-    
-    // Store session cookie/token if provided
-    const setCookie = response.headers['set-cookie'];
-    if (setCookie) {
-      // Extract token from cookie if needed
-      // Better Auth uses cookies, so we might need to handle this differently
+    try {
+      const response = await apiClient.post('/api/auth/sign-in/email', data, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': API_BASE_URL, // Better Auth requires Origin header
+        },
+      });
+      
+      // Better Auth returns { token, user } format, normalize to our expected format
+      const betterAuthResponse = response.data;
+      if (betterAuthResponse.user) {
+        return {
+          success: true,
+          data: {
+            user: betterAuthResponse.user,
+            session: betterAuthResponse.token ? { token: betterAuthResponse.token } : undefined,
+          },
+        };
+      }
+      
+      // If response doesn't match expected format, check for error
+      if (betterAuthResponse.error || betterAuthResponse.message) {
+        return {
+          success: false,
+          error: {
+            message: betterAuthResponse.error?.message || betterAuthResponse.message || 'Login failed',
+          },
+        };
+      }
+      
+      // Unknown format
+      return {
+        success: false,
+        error: { message: 'Unexpected response format' },
+      };
+    } catch (error: any) {
+      // Handle axios errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Login failed',
+          },
+        };
+      }
+      throw error; // Re-throw if it's not an axios error
     }
-    
-    return response.data;
   },
 
   signOut: async (): Promise<void> => {
