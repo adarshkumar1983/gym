@@ -69,9 +69,10 @@ export default function RegisterScreen() {
 
     try {
       await signUp(email, password, name);
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
+      // Redirect immediately after successful sign-up (same as sign-in)
+      // The auth-store automatically signs in after sign-up, so user is authenticated
+      // Use replace to prevent going back to register screen
+      router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message || 'Could not create account');
     }
