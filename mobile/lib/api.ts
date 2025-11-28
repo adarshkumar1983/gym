@@ -238,17 +238,85 @@ export const authAPI = {
   },
 
   getSession: async (): Promise<AuthResponse> => {
-    const response = await apiClient.get('/api/auth/session', {
-      withCredentials: true,
-    });
-    return response.data;
+    try {
+      const response = await apiClient.get('/api/auth/session', {
+        withCredentials: true,
+      });
+      
+      // Our custom endpoint returns { success: true, data: { session, user } }
+      const responseData = response.data;
+      
+      if (responseData.success && responseData.data) {
+        // Extract user from response.data.user or response.data.session.user
+        const user = responseData.data.user || responseData.data.session?.user;
+        
+        if (user) {
+          return {
+            success: true,
+            data: {
+              user,
+              session: responseData.data.session,
+            },
+          };
+        }
+      }
+      
+      // If format doesn't match expected structure
+      return {
+        success: false,
+        error: { message: 'Invalid session response format' },
+      };
+    } catch (error: any) {
+      // Handle axios errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Failed to get session',
+          },
+        };
+      }
+      throw error;
+    }
   },
 
   getMe: async (): Promise<AuthResponse> => {
-    const response = await apiClient.get('/api/auth/me', {
-      withCredentials: true,
-    });
-    return response.data;
+    try {
+      const response = await apiClient.get('/api/auth/me', {
+        withCredentials: true,
+      });
+      
+      // Our custom endpoint returns { success: true, data: { user } }
+      const responseData = response.data;
+      
+      if (responseData.success && responseData.data?.user) {
+        return {
+          success: true,
+          data: {
+            user: responseData.data.user,
+          },
+        };
+      }
+      
+      // If format doesn't match expected structure
+      return {
+        success: false,
+        error: { message: 'Invalid user response format' },
+      };
+    } catch (error: any) {
+      // Handle axios errors
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Failed to get user',
+          },
+        };
+      }
+      throw error;
+    }
   },
 };
 

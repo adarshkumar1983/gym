@@ -17,12 +17,10 @@ let auth: ReturnType<typeof createAuth>;
 // Import custom routes
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
-
-// Import routes (will be created)
-// import gymRoutes from './routes/gym.routes';
-// import memberRoutes from './routes/member.routes';
-// import workoutRoutes from './routes/workout.routes';
-// import paymentRoutes from './routes/payment.routes';
+import gymRoutes from './routes/gym.routes';
+import memberRoutes from './routes/member.routes';
+import workoutRoutes from './routes/workout.routes';
+import paymentRoutes from './routes/payment.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -146,12 +144,10 @@ app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
 app.use('/api/users', userRoutes); // User profile management
-
-// API Routes (protected routes will use requireAuth middleware)
-app.use('/api/gyms', (_req, res) => res.json({ message: 'Gym routes - coming soon' }));
-app.use('/api/members', (_req, res) => res.json({ message: 'Member routes - coming soon' }));
-app.use('/api/workouts', (_req, res) => res.json({ message: 'Workout routes - coming soon' }));
-app.use('/api/payments', (_req, res) => res.json({ message: 'Payment routes - coming soon' }));
+app.use('/api/gyms', gymRoutes); // Gym management
+app.use('/api/members', memberRoutes); // Gym member management
+app.use('/api/workouts', workoutRoutes); // Workout template management
+app.use('/api/payments', paymentRoutes); // Payment record management
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
