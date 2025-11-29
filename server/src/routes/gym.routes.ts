@@ -36,3 +36,4 @@ router.delete('/:id', requireAuth, gymController.deleteGym);
 
 export default router;
 
+

@@ -211,3 +211,4 @@ export const deleteGym = async (req: Request, res: Response): Promise<Response> 
   }
 };
 
+
