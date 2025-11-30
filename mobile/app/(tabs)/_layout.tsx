@@ -1,13 +1,12 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../lib/auth-store';
 
 export default function TabsLayout() {
   const router = useRouter();
   const signOut = useAuthStore((state) => state.signOut);
-  const user = useAuthStore((state) => state.user);
 
   const handleSignOut = async () => {
     await signOut();
@@ -17,23 +16,41 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: true,
-        headerRight: () => (
-          <TouchableOpacity
-            onPress={handleSignOut}
-            style={{ marginRight: 16 }}
-          >
-            <Ionicons name="log-out-outline" size={24} color="#007AFF" />
-          </TouchableOpacity>
-        ),
+        headerShown: false, // We'll use custom headers in screens for the "Large Title" look
+        tabBarStyle: {
+          backgroundColor: Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.9)' : '#fff',
+          borderTopWidth: 0,
+          elevation: 0, // Android shadow
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          height: Platform.OS === 'ios' ? 88 : 60,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          paddingTop: 8,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+        },
+        tabBarActiveTintColor: '#007AFF', // Apple Blue
+        tabBarInactiveTintColor: '#8E8E93', // Apple Gray
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '500',
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? "home" : "home-outline"} 
+              size={24} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -41,8 +58,12 @@ export default function TabsLayout() {
         name="exercises"
         options={{
           title: 'Exercises',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="barbell" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? "barbell" : "barbell-outline"} 
+              size={24} 
+              color={color} 
+            />
           ),
         }}
       />

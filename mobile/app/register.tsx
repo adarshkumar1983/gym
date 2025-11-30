@@ -71,7 +71,10 @@ export default function RegisterScreen() {
       await signUp(email, password, name);
       // Redirect immediately after successful sign-up (same as sign-in)
       // The auth-store automatically signs in after sign-up, so user is authenticated
-      // Use replace to prevent going back to register screen
+      
+      if (router.canGoBack()) {
+        router.dismissAll();
+      }
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message || 'Could not create account');
