@@ -14,4 +14,8 @@ export { Membership } from './Membership.model';
 export { PaymentRecord } from './PaymentRecord.model';
 export { Notification } from './Notification.model';
 export { RecurrenceRule } from './RecurrenceRule.model';
+export { NutritionLog } from './NutritionLog.model';
+export { Meal } from './Meal.model';
+export { MealPlan } from './MealPlan.model';
+export { NutritionGoal } from './NutritionGoal.model';
 
