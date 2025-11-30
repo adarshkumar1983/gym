@@ -46,6 +46,11 @@ export default function LoginScreen() {
 
     try {
       await signIn(email, password);
+      // Use a small timeout to ensure state propagates if needed, though usually not required with replace
+      // Explicitly navigate to the tabs root
+      if (router.canGoBack()) {
+        router.dismissAll();
+      }
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid email or password');

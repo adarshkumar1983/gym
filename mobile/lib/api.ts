@@ -240,9 +240,9 @@ export const authAPI = {
 
   getSession: async (): Promise<AuthResponse> => {
     try {
-      const response = await apiClient.get('/api/auth/session', {
-        withCredentials: true,
-      });
+    const response = await apiClient.get('/api/auth/session', {
+      withCredentials: true,
+    });
       
       // Our custom endpoint returns { success: true, data: { session, user } }
       const responseData = response.data;
@@ -284,9 +284,9 @@ export const authAPI = {
 
   getMe: async (): Promise<AuthResponse> => {
     try {
-      const response = await apiClient.get('/api/auth/me', {
-        withCredentials: true,
-      });
+    const response = await apiClient.get('/api/auth/me', {
+      withCredentials: true,
+    });
       
       // Our custom endpoint returns { success: true, data: { user } }
       const responseData = response.data;
@@ -330,6 +330,11 @@ export interface Exercise {
   mediaUrl?: string;
   notes?: string;
   workoutCount?: number;
+  muscle?: string;
+  equipment?: string;
+  difficulty?: string;
+  type?: string;
+  instructions?: string;
 }
 
 export interface ExerciseResponse {
