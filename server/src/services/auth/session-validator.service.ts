@@ -78,9 +78,14 @@ export const validateBearerTokenFromDb = async (token: string): Promise<SessionR
   try {
     const mongoose = await import('mongoose');
     const db = mongoose.connection.db;
-    if (!db) return null;
+    if (!db) {
+      console.log('⚠️ [validateBearerTokenFromDb] Database not available');
+      return null;
+    }
 
     const sessionCollection = db.collection('session');
+    
+    console.log(`🔍 [validateBearerTokenFromDb] Searching for token: ${token.substring(0, 10)}...`);
     
     // Try different field names
     let sessionDoc = await sessionCollection.findOne({
@@ -89,6 +94,7 @@ export const validateBearerTokenFromDb = async (token: string): Promise<SessionR
     });
 
     if (!sessionDoc) {
+      console.log('   Trying sessionToken field...');
       sessionDoc = await sessionCollection.findOne({
         sessionToken: token,
         expiresAt: { $gt: new Date() },
@@ -96,13 +102,29 @@ export const validateBearerTokenFromDb = async (token: string): Promise<SessionR
     }
 
     if (!sessionDoc) {
+      console.log('   Trying without expiresAt check...');
       sessionDoc = await sessionCollection.findOne({ token });
       if (!sessionDoc) {
         sessionDoc = await sessionCollection.findOne({ sessionToken: token });
       }
     }
 
-    if (!sessionDoc?.userId) return null;
+    if (sessionDoc) {
+      console.log(`   ✅ Found session document. Fields:`, Object.keys(sessionDoc));
+      console.log(`   Token field value:`, sessionDoc.token || sessionDoc.sessionToken || 'not found');
+    } else {
+      console.log('   ❌ No session document found. Checking sample document...');
+      const sampleDoc = await sessionCollection.findOne({});
+      if (sampleDoc) {
+        console.log(`   Sample document fields:`, Object.keys(sampleDoc));
+        console.log(`   Sample token field:`, sampleDoc.token || sampleDoc.sessionToken || 'not found');
+      }
+    }
+
+    if (!sessionDoc?.userId) {
+      console.log('   ❌ Session document found but no userId');
+      return null;
+    }
 
     const userCollection = db.collection('user');
     const userId = sessionDoc.userId.toString ? sessionDoc.userId.toString() : sessionDoc.userId;

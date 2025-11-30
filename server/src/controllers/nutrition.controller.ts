@@ -47,7 +47,7 @@ export const searchFood = async (req: Request, res: Response): Promise<Response>
  */
 export const getTodayNutrition = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.session?.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -75,7 +75,7 @@ export const getTodayNutrition = async (req: Request, res: Response): Promise<Re
  */
 export const addMeal = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.session?.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -121,7 +121,7 @@ export const addMeal = async (req: Request, res: Response): Promise<Response> =>
  */
 export const getNutritionGoal = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.session?.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -149,7 +149,7 @@ export const getNutritionGoal = async (req: Request, res: Response): Promise<Res
  */
 export const setNutritionGoal = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.session?.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -233,7 +233,7 @@ export const getMealPlans = async (req: Request, res: Response): Promise<Respons
  */
 export const getNutritionHistory = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.session?.user?.id;
     if (!userId) {
       return res.status(401).json({
         success: false,
