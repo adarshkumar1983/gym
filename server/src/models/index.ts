@@ -18,4 +18,8 @@ export { NutritionLog } from './NutritionLog.model';
 export { Meal } from './Meal.model';
 export { MealPlan } from './MealPlan.model';
 export { NutritionGoal } from './NutritionGoal.model';
+export { Post } from './Post.model';
+export { Story } from './Story.model';
+export { Follow } from './Follow.model';
+export { Comment } from './Comment.model';
 

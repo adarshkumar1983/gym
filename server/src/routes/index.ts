@@ -12,6 +12,7 @@ import workoutRoutes from './workout.routes';
 import paymentRoutes from './payment.routes';
 import exerciseRoutes from './exercise.routes';
 import nutritionRoutes from './nutrition.routes';
+import socialRoutes from './social.routes';
 import { handleBetterAuth, redirectSignUp, redirectSignIn } from '../middleware/auth-redirect.middleware';
 
 export const mountRoutes = (app: Application): void => {
@@ -46,5 +47,6 @@ export const mountRoutes = (app: Application): void => {
   app.use('/api/payments', paymentRoutes);
   app.use('/api/exercises', exerciseRoutes);
   app.use('/api/nutrition', nutritionRoutes);
+  app.use('/api/social', socialRoutes);
 };
 

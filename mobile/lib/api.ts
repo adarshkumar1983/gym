@@ -840,4 +840,422 @@ export const nutritionAPI = {
   },
 };
 
+// Social API Types
+export interface Post {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+  type: 'workout' | 'progress' | 'achievement' | 'meal' | 'general';
+  content: string;
+  mediaUrls: string[];
+  workoutId?: string;
+  mealId?: string;
+  likes: string[];
+  comments: string[];
+  views: number;
+  isPremium: boolean;
+  tags: string[];
+  location?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Story {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  caption?: string;
+  views: string[];
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface Comment {
+  _id: string;
+  userId: {
+    _id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+  postId: string;
+  content: string;
+  likes: string[];
+  parentCommentId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface User {
+  _id: string;
+  name: string;
+  email: string;
+  image?: string;
+  isFollowing?: boolean;
+}
+
+export interface SocialResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: { message: string };
+}
+
+// Social API
+export const socialAPI = {
+  getFeed: async (): Promise<SocialResponse<{ posts: Post[] }>> => {
+    try {
+      const response = await apiClient.get('/api/social/feed', {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            posts: responseData.data.posts || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get feed' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get feed',
+        },
+      };
+    }
+  },
+
+  createPost: async (postData: {
+    type?: string;
+    content?: string;
+    mediaUrls?: string[];
+    workoutId?: string;
+    mealId?: string;
+    tags?: string[];
+    location?: string;
+    isPremium?: boolean;
+  }): Promise<SocialResponse<{ post: Post }>> => {
+    try {
+      const response = await apiClient.post('/api/social/posts', postData, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            post: responseData.data.post,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to create post' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to create post',
+        },
+      };
+    }
+  },
+
+  getStories: async (): Promise<SocialResponse<{ stories: Array<{ user: User; stories: Story[] }> }>> => {
+    try {
+      const response = await apiClient.get('/api/social/stories', {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            stories: responseData.data.stories || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get stories' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get stories',
+        },
+      };
+    }
+  },
+
+  createStory: async (storyData: {
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    caption?: string;
+  }): Promise<SocialResponse<{ story: Story }>> => {
+    try {
+      const response = await apiClient.post('/api/social/stories', storyData, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            story: responseData.data.story,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to create story' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to create story',
+        },
+      };
+    }
+  },
+
+  viewStory: async (storyId: string): Promise<SocialResponse<{ story: Story }>> => {
+    try {
+      const response = await apiClient.post(`/api/social/stories/${storyId}/view`, {}, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            story: responseData.data.story,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to view story' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to view story',
+        },
+      };
+    }
+  },
+
+  followUser: async (followingId: string): Promise<SocialResponse> => {
+    try {
+      const response = await apiClient.post('/api/social/follow', { followingId }, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success) {
+        return {
+          success: true,
+          data: responseData.data,
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to follow user' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to follow user',
+        },
+      };
+    }
+  },
+
+  unfollowUser: async (followingId: string): Promise<SocialResponse> => {
+    try {
+      const response = await apiClient.post('/api/social/unfollow', { followingId }, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success) {
+        return {
+          success: true,
+          data: responseData.data,
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to unfollow user' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to unfollow user',
+        },
+      };
+    }
+  },
+
+  likePost: async (postId: string): Promise<SocialResponse<{ post: Post; isLiked: boolean; likesCount: number }>> => {
+    try {
+      const response = await apiClient.post(`/api/social/posts/${postId}/like`, {}, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            post: responseData.data.post,
+            isLiked: responseData.data.isLiked,
+            likesCount: responseData.data.likesCount,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to like post' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to like post',
+        },
+      };
+    }
+  },
+
+  addComment: async (postId: string, content: string, parentCommentId?: string): Promise<SocialResponse<{ comment: Comment }>> => {
+    try {
+      const response = await apiClient.post(`/api/social/posts/${postId}/comments`, {
+        content,
+        parentCommentId,
+      }, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            comment: responseData.data.comment,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to add comment' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to add comment',
+        },
+      };
+    }
+  },
+
+  getComments: async (postId: string): Promise<SocialResponse<{ comments: Comment[] }>> => {
+    try {
+      const response = await apiClient.get(`/api/social/posts/${postId}/comments`, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            comments: responseData.data.comments || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get comments' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get comments',
+        },
+      };
+    }
+  },
+
+  searchUsers: async (query: string): Promise<SocialResponse<{ users: User[] }>> => {
+    try {
+      const response = await apiClient.get('/api/social/users/search', {
+        params: { query },
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            users: responseData.data.users || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to search users' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to search users',
+        },
+      };
+    }
+  },
+};
+
 export default apiClient;
