@@ -42,6 +42,22 @@ apiClient.interceptors.request.use(
       }
     }
     
+    // Add Bearer token if available
+    try {
+      const token = await SecureStore.getItemAsync('auth_token');
+      if (token) {
+        if (!config.headers) {
+          config.headers = {} as any;
+        }
+        config.headers['Authorization'] = `Bearer ${token}`;
+        console.log(`   🔑 Added Bearer token to request`);
+      } else {
+        console.log(`   ⚠️ No auth token found in SecureStore`);
+      }
+    } catch (error) {
+      console.warn('   ⚠️ Error retrieving auth token:', error);
+    }
+    
     console.log(`📤 [API Request] ${config.method?.toUpperCase()} ${config.url}`);
     console.log(`   Base URL: ${config.baseURL}`);
     console.log(`   Full URL: ${config.baseURL}${config.url}`);
@@ -71,9 +87,23 @@ apiClient.interceptors.response.use(
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
       console.log(`   🍪 Set-Cookie header found:`, setCookie);
-      // Cookies are automatically handled by axios with withCredentials: true
-      // But we can store session info for persistence
+      // In React Native, cookies need to be manually managed
+      // Better Auth uses cookies, but React Native doesn't handle them automatically
+      // The withCredentials: true should help, but cookies might not persist
     }
+    
+    // Check if response contains a session token (Better Auth might return this)
+    // Better Auth returns token in nested structure: data.session.session.token
+    const token = response.data?.session?.session?.token || 
+                  response.data?.session?.token || 
+                  response.data?.token;
+    if (token) {
+      console.log(`   🔑 Storing auth token from response`);
+      SecureStore.setItemAsync('auth_token', token).catch(err => {
+        console.warn('Failed to store auth token:', err);
+      });
+    }
+    
     return response;
   },
   async (error) => {
@@ -135,6 +165,11 @@ export const authAPI = {
       // Better Auth returns { token, user } format, normalize to our expected format
       const betterAuthResponse = response.data;
       if (betterAuthResponse.user) {
+        // Store token if present
+        if (betterAuthResponse.token) {
+          await SecureStore.setItemAsync('auth_token', betterAuthResponse.token);
+        }
+        
         return {
           success: true,
           data: {
@@ -189,6 +224,11 @@ export const authAPI = {
       // Better Auth returns { token, user } format, normalize to our expected format
       const betterAuthResponse = response.data;
       if (betterAuthResponse.user) {
+        // Store token if present
+        if (betterAuthResponse.token) {
+          await SecureStore.setItemAsync('auth_token', betterAuthResponse.token);
+        }
+
         return {
           success: true,
           data: {
@@ -250,6 +290,15 @@ export const authAPI = {
       if (responseData.success && responseData.data) {
         // Extract user from response.data.user or response.data.session.user
         const user = responseData.data.user || responseData.data.session?.user;
+        
+        // Extract and store token from nested structure: data.session.session.token
+        const token = responseData.data.session?.session?.token || 
+                      responseData.data.session?.token || 
+                      responseData.data.token;
+        if (token) {
+          console.log(`[authAPI.getSession] Storing token from session response`);
+          await SecureStore.setItemAsync('auth_token', token);
+        }
         
         if (user) {
           return {
@@ -498,5 +547,297 @@ export const exerciseAPI = {
   },
 };
 
-export default apiClient;
+// Nutrition API functions
+export interface FoodItem {
+  foodId: string;
+  label: string;
+  brand?: string;
+  nutrients: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber?: number;
+    sugar?: number;
+  };
+  servingSizes: Array<{
+    label: string;
+    quantity: number;
+  }>;
+}
 
+export interface Meal {
+  _id?: string;
+  userId: string;
+  nutritionLogId: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre-workout' | 'post-workout';
+  name?: string;
+  foodItems: FoodItem[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFats: number;
+  consumedAt: string;
+  notes?: string;
+  imageUrl?: string;
+}
+
+export interface NutritionLog {
+  _id?: string;
+  userId: string;
+  date: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFats: number;
+  meals: Meal[];
+  waterIntake?: number;
+}
+
+export interface NutritionGoal {
+  _id?: string;
+  userId: string;
+  targetCalories: number;
+  targetProtein: number;
+  targetCarbs: number;
+  targetFats: number;
+  goalType: 'weight-loss' | 'muscle-gain' | 'maintenance' | 'custom';
+  isActive: boolean;
+}
+
+export interface NutritionResponse {
+  success: boolean;
+  data?: {
+    foods?: FoodItem[];
+    count?: number;
+    nutritionLog?: NutritionLog;
+    goal?: NutritionGoal;
+    remaining?: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fats: number;
+      percentages: {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fats: number;
+      };
+    };
+    meal?: Meal;
+    logs?: NutritionLog[];
+  };
+  error?: {
+    message: string;
+  };
+}
+
+export const nutritionAPI = {
+  searchFood: async (query: string): Promise<NutritionResponse> => {
+    try {
+      const response = await apiClient.get('/api/nutrition/food/search', {
+        params: { query },
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            foods: responseData.data.foods || [],
+            count: responseData.data.count || 0,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to search food' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to search food',
+        },
+      };
+    }
+  },
+
+  getTodayNutrition: async (): Promise<NutritionResponse> => {
+    try {
+      const response = await apiClient.get('/api/nutrition/today', {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            nutritionLog: responseData.data.nutritionLog,
+            goal: responseData.data.goal,
+            remaining: responseData.data.remaining,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get nutrition log' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get nutrition log',
+        },
+      };
+    }
+  },
+
+  addMeal: async (mealData: {
+    mealType: string;
+    foodItems: FoodItem[];
+    consumedAt?: string;
+    notes?: string;
+    imageUrl?: string;
+  }): Promise<NutritionResponse> => {
+    try {
+      const response = await apiClient.post('/api/nutrition/meals', mealData, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            meal: responseData.data.meal,
+            nutritionLog: responseData.data.nutritionLog,
+            goal: responseData.data.goal,
+            remaining: responseData.data.remaining,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to add meal' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to add meal',
+        },
+      };
+    }
+  },
+
+  getNutritionGoal: async (): Promise<NutritionResponse> => {
+    try {
+      const response = await apiClient.get('/api/nutrition/goals', {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            goal: responseData.data.goal,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get nutrition goal' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get nutrition goal',
+        },
+      };
+    }
+  },
+
+  setNutritionGoal: async (goalData: {
+    targetCalories?: number;
+    targetProtein?: number;
+    targetCarbs?: number;
+    targetFats?: number;
+    goalType?: string;
+    activityLevel?: string;
+  }): Promise<NutritionResponse> => {
+    try {
+      const response = await apiClient.post('/api/nutrition/goals', goalData, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            goal: responseData.data.goal,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to set nutrition goal' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to set nutrition goal',
+        },
+      };
+    }
+  },
+
+  getNutritionHistory: async (startDate?: string, endDate?: string, limit?: number): Promise<NutritionResponse> => {
+    try {
+      const params: any = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (limit) params.limit = limit;
+
+      const response = await apiClient.get('/api/nutrition/history', {
+        params,
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            logs: responseData.data.logs || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get nutrition history' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get nutrition history',
+        },
+      };
+    }
+  },
+};
+
+export default apiClient;

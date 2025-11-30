@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getAuth } from '../lib/better-auth';
-import { UserProfile } from '../models/UserProfile.model';
+import { validateSession, loadUserProfile } from '../services/auth';
 
 // Extend Express Request to include session
 declare global {
@@ -29,63 +28,46 @@ declare global {
 
 /**
  * Middleware to verify user is authenticated
- * Also loads user profile with role and additional fields
+ * Supports both cookie-based and Bearer token authentication
  */
 export const requireAuth = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
-    // Get session from Better Auth
-    const session = await getAuth().api.getSession({ headers: req.headers });
+    const sessionResult = await validateSession(req.headers);
     
-    if (!session || !session.user) {
-      return res.status(401).json({
+    if (!sessionResult?.user) {
+      res.status(401).json({
         success: false,
-        error: {
-          message: 'Authentication required'
-        }
+        error: { message: 'Authentication required' },
       });
+      return;
     }
 
-    // Attach session to request (convert null role to undefined)
+    // Attach session to request
     req.session = {
       user: {
-        ...session.user,
-        role: session.user.role ?? undefined,
+        ...sessionResult.user,
+        role: sessionResult.user.role ?? undefined,
       },
     };
 
-    // Load user profile (role, phone, etc.)
-    try {
-      const userProfile = await UserProfile.findOne({ userId: session.user.id });
-      if (userProfile) {
-        req.userProfile = {
-          userId: userProfile.userId,
-          role: userProfile.role,
-          phone: userProfile.phone,
-          profileImageUrl: userProfile.profileImageUrl,
-          gymId: userProfile.gymId?.toString(),
-          trainerId: userProfile.trainerId?.toString(),
-        };
-        // Also attach role to session user for convenience
-        if (req.session) {
-          req.session.user.role = userProfile.role;
-        }
+    // Load and attach user profile
+    const userProfile = await loadUserProfile(sessionResult.user.id);
+    if (userProfile) {
+      req.userProfile = userProfile;
+      if (req.session) {
+        req.session.user.role = userProfile.role;
       }
-    } catch (error) {
-      // Profile not found, continue without it
-      console.warn('User profile not found for user:', session.user.id);
     }
 
-    return next();
+    next();
   } catch (error) {
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
-      error: {
-        message: 'Invalid or expired session'
-      }
+      error: { message: 'Invalid or expired session' },
     });
   }
 };
@@ -94,58 +76,47 @@ export const requireAuth = async (
  * Middleware to check if user has required role
  */
 export const requireRole = (...roles: string[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const session = await getAuth().api.getSession({ headers: req.headers });
+      const sessionResult = await validateSession(req.headers);
       
-      if (!session || !session.user) {
-        return res.status(401).json({
+      if (!sessionResult?.user) {
+        res.status(401).json({
           success: false,
-          error: {
-            message: 'Authentication required'
-          }
+          error: { message: 'Authentication required' },
         });
+        return;
       }
 
       // Load user profile to check role
-      const userProfile = await UserProfile.findOne({ userId: session.user.id });
-      const userRole = userProfile?.role || (session.user as any).role;
+      const userProfile = await loadUserProfile(sessionResult.user.id);
+      const userRole = userProfile?.role || sessionResult.user.role;
       
       if (!userRole || !roles.includes(userRole)) {
-        return res.status(403).json({
+        res.status(403).json({
           success: false,
-          error: {
-            message: 'Insufficient permissions'
-          }
+          error: { message: 'Insufficient permissions' },
         });
+        return;
       }
 
-      // Attach profile to request
-      if (userProfile) {
-        req.userProfile = {
-          userId: userProfile.userId,
-          role: userProfile.role,
-          phone: userProfile.phone,
-          profileImageUrl: userProfile.profileImageUrl,
-          gymId: userProfile.gymId?.toString(),
-          trainerId: userProfile.trainerId?.toString(),
-        };
-      }
-
-      // Attach session to request (convert null role to undefined)
+      // Attach session and profile to request
       req.session = {
         user: {
-          ...session.user,
-          role: session.user.role ?? undefined,
+          ...sessionResult.user,
+          role: sessionResult.user.role ?? undefined,
         },
       };
-      return next();
+      
+      if (userProfile) {
+        req.userProfile = userProfile;
+      }
+
+      next();
     } catch (error) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
-        error: {
-          message: 'Invalid or expired session'
-        }
+        error: { message: 'Invalid or expired session' },
       });
     }
   };
@@ -158,22 +129,26 @@ export const optionalAuth = async (
   req: Request,
   _res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
-    const session = await getAuth().api.getSession({ headers: req.headers });
-    if (session) {
-      // Attach session to request (convert null role to undefined)
+    const sessionResult = await validateSession(req.headers);
+    if (sessionResult?.user) {
       req.session = {
         user: {
-          ...session.user,
-          role: session.user.role ?? undefined,
+          ...sessionResult.user,
+          role: sessionResult.user.role ?? undefined,
         },
       };
+      
+      const userProfile = await loadUserProfile(sessionResult.user.id);
+      if (userProfile) {
+        req.userProfile = userProfile;
+      }
     }
-    return next();
-  } catch (error) {
+    next();
+  } catch {
     // Continue without auth if session is invalid
-    return next();
+    next();
   }
 };
 

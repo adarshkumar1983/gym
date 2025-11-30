@@ -10,4 +10,5 @@ export * as memberController from './member.controller';
 export * as workoutController from './workout.controller';
 export * as paymentController from './payment.controller';
 export * as exerciseController from './exercise.controller';
+export * as nutritionController from './nutrition.controller';
 
