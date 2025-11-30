@@ -21,6 +21,7 @@ import gymRoutes from './routes/gym.routes';
 import memberRoutes from './routes/member.routes';
 import workoutRoutes from './routes/workout.routes';
 import paymentRoutes from './routes/payment.routes';
+import exerciseRoutes from './routes/exercise.routes';
 
 // Import middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -148,6 +149,7 @@ app.use('/api/gyms', gymRoutes); // Gym management
 app.use('/api/members', memberRoutes); // Gym member management
 app.use('/api/workouts', workoutRoutes); // Workout template management
 app.use('/api/payments', paymentRoutes); // Payment record management
+app.use('/api/exercises', exerciseRoutes); // Exercise management
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler);
