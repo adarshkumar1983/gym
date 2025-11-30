@@ -36,3 +36,4 @@ router.delete('/:id', requireAuth, paymentController.deletePayment);
 
 export default router;
 
+

@@ -82,3 +82,4 @@ All authentication endpoints are working correctly:
 - Custom endpoints (`/session`, `/me`) go through our controllers and return the standardized format
 - The mobile app now properly handles both response formats
 
+

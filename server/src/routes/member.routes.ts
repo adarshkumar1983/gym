@@ -36,3 +36,4 @@ router.delete('/:id', requireAuth, memberController.removeMember);
 
 export default router;
 
+

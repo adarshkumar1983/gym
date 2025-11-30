@@ -36,3 +36,4 @@ router.delete('/:id', requireAuth, workoutController.deleteWorkout);
 
 export default router;
 
+

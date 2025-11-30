@@ -124,3 +124,4 @@ server/src/
 - Error handling is consistent across all controllers
 - Security checks (owner/creator verification) are in place
 
+

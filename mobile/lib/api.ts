@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getApiUrl } from './config';
 
@@ -312,6 +313,178 @@ export const authAPI = {
           success: false,
           error: {
             message: errorData.error?.message || errorData.message || 'Failed to get user',
+          },
+        };
+      }
+      throw error;
+    }
+  },
+};
+
+// Exercise API functions
+export interface Exercise {
+  name: string;
+  sets: number;
+  reps?: number;
+  restSeconds: number;
+  mediaUrl?: string;
+  notes?: string;
+  workoutCount?: number;
+}
+
+export interface ExerciseResponse {
+  success: boolean;
+  data?: {
+    exercises: Exercise[];
+    total: number;
+  };
+  error?: {
+    message: string;
+  };
+}
+
+const EXERCISES_CACHE_KEY = '@gym_app:exercises_cache';
+const EXERCISES_CACHE_TIMESTAMP_KEY = '@gym_app:exercises_cache_timestamp';
+const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
+
+export const exerciseAPI = {
+  getAllExercises: async (gymId?: string, search?: string, useCache: boolean = true): Promise<ExerciseResponse> => {
+    try {
+      // Try to load from cache first (if not searching and cache is enabled)
+      if (useCache && (!search || search.trim() === '')) {
+        try {
+          const cachedData = await AsyncStorage.getItem(EXERCISES_CACHE_KEY);
+          const cachedTimestamp = await AsyncStorage.getItem(EXERCISES_CACHE_TIMESTAMP_KEY);
+          
+          if (cachedData && cachedTimestamp) {
+            const timestamp = parseInt(cachedTimestamp, 10);
+            const now = Date.now();
+            
+            if (now - timestamp < CACHE_DURATION) {
+              console.log('📦 Using cached exercises');
+              const parsed = JSON.parse(cachedData);
+              return {
+                success: true,
+                data: {
+                  exercises: parsed.exercises || [],
+                  total: parsed.total || 0,
+                },
+              };
+            } else {
+              console.log('⏰ Cache expired, fetching fresh data');
+            }
+          }
+        } catch (cacheError) {
+          console.log('⚠️ Cache read error, fetching fresh:', cacheError);
+        }
+      }
+
+      // Fetch from API
+      const params: any = {};
+      if (gymId) params.gymId = gymId;
+      if (search) params.search = search;
+
+      const response = await apiClient.get('/api/exercises', {
+        params,
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+
+      if (responseData.success && responseData.data) {
+        const result = {
+          success: true,
+          data: {
+            exercises: responseData.data.exercises || [],
+            total: responseData.data.total || 0,
+          },
+        };
+
+        // Cache the result (only if not searching)
+        if (useCache && (!search || search.trim() === '')) {
+          try {
+            await AsyncStorage.setItem(EXERCISES_CACHE_KEY, JSON.stringify(result.data));
+            await AsyncStorage.setItem(EXERCISES_CACHE_TIMESTAMP_KEY, Date.now().toString());
+            console.log('💾 Cached exercises');
+          } catch (cacheError) {
+            console.log('⚠️ Cache write error:', cacheError);
+          }
+        }
+
+        return result;
+      }
+
+      return {
+        success: false,
+        error: { message: 'Invalid response format' },
+      };
+    } catch (error: any) {
+      // If API fails, try to return cached data as fallback
+      if (useCache && (!search || search.trim() === '')) {
+        try {
+          const cachedData = await AsyncStorage.getItem(EXERCISES_CACHE_KEY);
+          if (cachedData) {
+            console.log('📦 API failed, using cached exercises as fallback');
+            const parsed = JSON.parse(cachedData);
+            return {
+              success: true,
+              data: {
+                exercises: parsed.exercises || [],
+                total: parsed.total || 0,
+              },
+            };
+          }
+        } catch (cacheError) {
+          console.log('⚠️ Cache fallback error:', cacheError);
+        }
+      }
+
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Failed to fetch exercises',
+          },
+        };
+      }
+      throw error;
+    }
+  },
+
+  getExerciseByName: async (name: string, gymId?: string): Promise<ExerciseResponse> => {
+    try {
+      const params: any = {};
+      if (gymId) params.gymId = gymId;
+
+      const response = await apiClient.get(`/api/exercises/${encodeURIComponent(name)}`, {
+        params,
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+
+      if (responseData.success && responseData.data?.exercise) {
+        return {
+          success: true,
+          data: {
+            exercises: [responseData.data.exercise],
+            total: 1,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: 'Exercise not found' },
+      };
+    } catch (error: any) {
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        return {
+          success: false,
+          error: {
+            message: errorData.error?.message || errorData.message || 'Failed to fetch exercise',
           },
         };
       }
