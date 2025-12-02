@@ -11,4 +11,6 @@ export * as workoutController from './workout.controller';
 export * as paymentController from './payment.controller';
 export * as exerciseController from './exercise.controller';
 export * as nutritionController from './nutrition.controller';
+export * as healthController from './health.controller';
+export * as calendarController from './calendar.controller';
 
