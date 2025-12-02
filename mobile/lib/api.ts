@@ -632,6 +632,150 @@ export interface NutritionResponse {
   };
 }
 
+// Workout Template API functions
+export interface WorkoutTemplate {
+  _id: string;
+  gymId: string;
+  name: string;
+  description?: string;
+  exercises: Array<{
+    name: string;
+    sets: number;
+    reps?: number;
+    restSeconds: number;
+    mediaUrl?: string;
+    notes?: string;
+    orderIndex: number;
+  }>;
+  createdBy: string;
+  isActive: boolean;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkoutTemplateResponse {
+  success: boolean;
+  data?: {
+    workouts?: WorkoutTemplate[];
+    workout?: WorkoutTemplate;
+    total?: number;
+  };
+  error?: {
+    message: string;
+  };
+}
+
+export const workoutAPI = {
+  getAllWorkouts: async (gymId?: string): Promise<WorkoutTemplateResponse> => {
+    try {
+      const params: any = {};
+      if (gymId) params.gymId = gymId;
+
+      const response = await apiClient.get('/api/workouts', {
+        params,
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            workouts: responseData.data.workouts || [],
+            total: responseData.data.total || 0,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to fetch workouts' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to fetch workouts',
+        },
+      };
+    }
+  },
+
+  getWorkoutById: async (id: string): Promise<WorkoutTemplateResponse> => {
+    try {
+      const response = await apiClient.get(`/api/workouts/${id}`, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            workout: responseData.data.workout,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to fetch workout' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to fetch workout',
+        },
+      };
+    }
+  },
+
+  createWorkout: async (workoutData: {
+    gymId?: string;
+    name: string;
+    description?: string;
+    exercises: Array<{
+      name: string;
+      sets: number;
+      reps?: number;
+      restSeconds?: number;
+      notes?: string;
+      orderIndex?: number;
+    }>;
+    tags?: string[];
+  }): Promise<WorkoutTemplateResponse> => {
+    try {
+      const response = await apiClient.post('/api/workouts', workoutData, {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            workout: responseData.data.workout,
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to create workout' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to create workout',
+        },
+      };
+    }
+  },
+};
+
 export const nutritionAPI = {
   searchFood: async (query: string): Promise<NutritionResponse> => {
     try {

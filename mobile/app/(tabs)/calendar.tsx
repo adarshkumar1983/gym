@@ -16,7 +16,7 @@ import Animated, { FadeInDown, SlideInDown, SlideOutDown } from 'react-native-re
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../lib/auth-store';
 import { calendarAPI, CalendarEvent, Workout } from '../../lib/calendar-api';
-import { exerciseAPI, Exercise } from '../../lib/api';
+import { workoutAPI, WorkoutTemplate } from '../../lib/api';
 import Calendar from '../../components/Calendar';
 
 const THEME = {
@@ -45,7 +45,7 @@ export default function CalendarScreen() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [availableWorkouts, setAvailableWorkouts] = useState<Exercise[]>([]);
+  const [availableWorkouts, setAvailableWorkouts] = useState<WorkoutTemplate[]>([]);
   const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null);
   const [scheduleTime, setScheduleTime] = useState(new Date());
 
@@ -173,14 +173,16 @@ export default function CalendarScreen() {
   const openScheduleModal = async () => {
     setShowScheduleModal(true);
     try {
-      const response = await exerciseAPI.getAllExercises();
-      if (response.success && response.data?.exercises) {
-        // For now, we'll use exercises as workout templates
-        // In a real app, you'd fetch workout templates
-        setAvailableWorkouts(response.data.exercises.slice(0, 10));
+      const response = await workoutAPI.getAllWorkouts();
+      if (response.success && response.data?.workouts) {
+        setAvailableWorkouts(response.data.workouts);
+      } else {
+        // If no workout templates exist, show empty state
+        setAvailableWorkouts([]);
       }
     } catch (error) {
       console.error('Error loading workouts:', error);
+      setAvailableWorkouts([]);
     }
   };
 
@@ -337,21 +339,41 @@ export default function CalendarScreen() {
 
             <ScrollView style={styles.modalBody}>
               <Text style={styles.modalLabel}>Select Workout</Text>
-              {availableWorkouts.map((workout) => (
-                <TouchableOpacity
-                  key={workout.name}
-                  style={[
-                    styles.workoutOption,
-                    selectedWorkout === workout.name && styles.workoutOptionSelected,
-                  ]}
-                  onPress={() => setSelectedWorkout(workout.name)}
-                >
-                  <Text style={styles.workoutOptionText}>{workout.name}</Text>
-                  {selectedWorkout === workout.name && (
-                    <Ionicons name="checkmark" size={20} color={THEME.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+              {availableWorkouts.length === 0 ? (
+                <View style={styles.emptyWorkoutsState}>
+                  <Ionicons name="barbell-outline" size={48} color={THEME.textSecondary} />
+                  <Text style={styles.emptyWorkoutsText}>No workout templates available</Text>
+                  <Text style={styles.emptyWorkoutsSubtext}>
+                    Create workout templates in the app to schedule them
+                  </Text>
+                </View>
+              ) : (
+                availableWorkouts.map((workout) => (
+                  <TouchableOpacity
+                    key={workout._id}
+                    style={[
+                      styles.workoutOption,
+                      selectedWorkout === workout._id && styles.workoutOptionSelected,
+                    ]}
+                    onPress={() => setSelectedWorkout(workout._id)}
+                  >
+                    <View style={styles.workoutOptionContent}>
+                      <Text style={styles.workoutOptionText}>{workout.name}</Text>
+                      {workout.description && (
+                        <Text style={styles.workoutOptionDescription} numberOfLines={1}>
+                          {workout.description}
+                        </Text>
+                      )}
+                      <Text style={styles.workoutOptionExercises}>
+                        {workout.exercises.length} {workout.exercises.length === 1 ? 'exercise' : 'exercises'}
+                      </Text>
+                    </View>
+                    {selectedWorkout === workout._id && (
+                      <Ionicons name="checkmark" size={20} color={THEME.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
 
               <Text style={styles.modalLabel}>Date & Time</Text>
               <View style={styles.dateTimeContainer}>
@@ -586,6 +608,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  workoutOptionContent: {
+    flex: 1,
+  },
+  workoutOptionDescription: {
+    fontSize: 13,
+    color: THEME.textSecondary,
+    marginTop: 2,
+  },
+  workoutOptionExercises: {
+    fontSize: 12,
+    color: THEME.textSecondary,
+    marginTop: 4,
+  },
+  emptyWorkoutsState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyWorkoutsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.text,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyWorkoutsSubtext: {
+    fontSize: 14,
+    color: THEME.textSecondary,
+    textAlign: 'center',
   },
 });
 

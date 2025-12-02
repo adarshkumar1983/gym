@@ -51,5 +51,30 @@ router.put('/settings', requireAuth, healthController.updateSyncSettings);
  */
 router.delete('/data/:id', requireAuth, healthController.deleteHealthData);
 
+/**
+ * Fitbit OAuth endpoints
+ */
+import * as fitbitController from '../controllers/fitbit.controller';
+
+/**
+ * Get Fitbit OAuth authorization URL
+ * GET /api/health/fitbit/auth-url
+ */
+router.get('/fitbit/auth-url', requireAuth, fitbitController.getFitbitAuthUrl);
+
+/**
+ * Handle Fitbit OAuth callback (supports both GET and POST)
+ * GET /api/health/fitbit/callback
+ * POST /api/health/fitbit/callback
+ */
+router.get('/fitbit/callback', requireAuth, fitbitController.fitbitCallback);
+router.post('/fitbit/callback', requireAuth, fitbitController.fitbitCallback);
+
+/**
+ * Refresh Fitbit access token
+ * POST /api/health/fitbit/refresh
+ */
+router.post('/fitbit/refresh', requireAuth, fitbitController.refreshFitbitToken);
+
 export default router;
 

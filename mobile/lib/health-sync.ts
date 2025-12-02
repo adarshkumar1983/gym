@@ -6,6 +6,10 @@
 import { Platform } from 'react-native';
 import apiClient from './api';
 import * as SecureStore from 'expo-secure-store';
+import { AppleHealthProvider } from './health-providers/apple-health';
+import { GoogleFitProvider } from './health-providers/google-fit';
+import { FitbitProvider } from './health-providers/fitbit';
+import * as WebBrowser from 'expo-web-browser';
 
 export interface HealthData {
   date: string;
@@ -280,80 +284,269 @@ class HealthSyncService {
 
   /**
    * Request Apple Health permissions (iOS only)
-   * Note: Requires expo-health package
    */
   async requestAppleHealthPermissions(): Promise<boolean> {
     if (Platform.OS !== 'ios') {
       return false;
     }
 
-    // TODO: Implement with expo-health or react-native-health
-    // This requires additional setup and native modules
-    console.log('Apple Health permissions requested');
-    return false;
+    try {
+      const isAvailable = await AppleHealthProvider.isAvailable();
+      if (!isAvailable) {
+        console.warn('HealthKit is not available on this device');
+        return false;
+      }
+
+      const granted = await AppleHealthProvider.requestPermissions();
+      if (granted) {
+        // Update sync settings
+        await this.updateSyncSettings({ appleHealthEnabled: true });
+      }
+      return granted;
+    } catch (error) {
+      console.error('Error requesting Apple Health permissions:', error);
+      return false;
+    }
   }
 
   /**
    * Request Google Fit permissions (Android only)
-   * Note: Requires Google Fit API setup
    */
   async requestGoogleFitPermissions(): Promise<boolean> {
     if (Platform.OS !== 'android') {
       return false;
     }
 
-    // TODO: Implement with Google Fit API
-    // This requires OAuth setup and Google Fit SDK
-    console.log('Google Fit permissions requested');
-    return false;
+    try {
+      const isAvailable = await GoogleFitProvider.isAvailable();
+      if (!isAvailable) {
+        console.warn('Google Fit is not available on this device');
+        return false;
+      }
+
+      const granted = await GoogleFitProvider.requestPermissions();
+      if (granted) {
+        // Update sync settings
+        await this.updateSyncSettings({ googleFitEnabled: true });
+      }
+      return granted;
+    } catch (error) {
+      console.error('Error requesting Google Fit permissions:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Request Fitbit authorization
+   */
+  async requestFitbitAuthorization(): Promise<boolean> {
+    try {
+      const authUrl = await FitbitProvider.getAuthUrl();
+      if (!authUrl) {
+        console.error('Failed to get Fitbit auth URL');
+        return false;
+      }
+
+      // Open browser for OAuth
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        'gym-mobile://fitbit-callback'
+      );
+
+      if (result.type === 'success' && result.url) {
+        // Extract code from callback URL
+        const url = new URL(result.url);
+        const code = url.searchParams.get('code');
+        if (code) {
+          const success = await FitbitProvider.exchangeCode(code);
+          return success;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error requesting Fitbit authorization:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sync health data from Apple Health
+   */
+  async syncAppleHealth(date: Date = new Date()): Promise<HealthResponse> {
+    if (Platform.OS !== 'ios') {
+      return {
+        success: false,
+        error: { message: 'Apple Health is only available on iOS' },
+      };
+    }
+
+    try {
+      const startDate = new Date(date);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+
+      const data = await AppleHealthProvider.readAllData(startDate, endDate);
+      if (!data) {
+        return {
+          success: false,
+          error: { message: 'No health data available' },
+        };
+      }
+
+      return await this.syncHealthData({
+        date: date.toISOString().split('T')[0],
+        source: 'apple-health',
+        ...data,
+      });
+    } catch (error: any) {
+      return {
+        success: false,
+        error: { message: error.message || 'Failed to sync Apple Health data' },
+      };
+    }
+  }
+
+  /**
+   * Sync health data from Google Fit
+   */
+  async syncGoogleFit(date: Date = new Date()): Promise<HealthResponse> {
+    if (Platform.OS !== 'android') {
+      return {
+        success: false,
+        error: { message: 'Google Fit is only available on Android' },
+      };
+    }
+
+    try {
+      const isAuthorized = await GoogleFitProvider.isAuthorized();
+      if (!isAuthorized) {
+        return {
+          success: false,
+          error: { message: 'Google Fit not authorized' },
+        };
+      }
+
+      const startDate = new Date(date);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+
+      const data = await GoogleFitProvider.readAllData(startDate, endDate);
+      if (!data) {
+        return {
+          success: false,
+          error: { message: 'No health data available' },
+        };
+      }
+
+      return await this.syncHealthData({
+        date: date.toISOString().split('T')[0],
+        source: 'google-fit',
+        ...data,
+      });
+    } catch (error: any) {
+      return {
+        success: false,
+        error: { message: error.message || 'Failed to sync Google Fit data' },
+      };
+    }
+  }
+
+  /**
+   * Sync health data from Fitbit
+   */
+  async syncFitbit(date: Date = new Date()): Promise<HealthResponse> {
+    try {
+      const isAuthorized = await FitbitProvider.isAuthorized();
+      if (!isAuthorized) {
+        return {
+          success: false,
+          error: { message: 'Fitbit not authorized' },
+        };
+      }
+
+      const startDate = new Date(date);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+
+      const data = await FitbitProvider.readAllData(startDate, endDate);
+      if (!data) {
+        return {
+          success: false,
+          error: { message: 'No health data available' },
+        };
+      }
+
+      return await this.syncHealthData({
+        date: date.toISOString().split('T')[0],
+        source: 'fitbit',
+        ...data,
+      });
+    } catch (error: any) {
+      return {
+        success: false,
+        error: { message: error.message || 'Failed to sync Fitbit data' },
+      };
+    }
+  }
+
+  /**
+   * Auto-sync all enabled health sources
+   */
+  async autoSync(date: Date = new Date()): Promise<HealthResponse[]> {
+    const results: HealthResponse[] = [];
+    const settings = await this.getSyncSettings();
+
+    if (settings.success && settings.data?.settings) {
+      const { settings: syncSettings } = settings.data;
+
+      if (syncSettings.appleHealthEnabled && Platform.OS === 'ios') {
+        results.push(await this.syncAppleHealth(date));
+      }
+
+      if (syncSettings.googleFitEnabled && Platform.OS === 'android') {
+        results.push(await this.syncGoogleFit(date));
+      }
+
+      if (syncSettings.fitbitEnabled) {
+        results.push(await this.syncFitbit(date));
+      }
+    }
+
+    return results;
   }
 
   /**
    * Read steps from Apple Health
    */
   async readAppleHealthSteps(startDate: Date, endDate: Date): Promise<number | null> {
-    if (Platform.OS !== 'ios') {
-      return null;
-    }
-
-    // TODO: Implement with expo-health or react-native-health
-    return null;
+    return AppleHealthProvider.readSteps(startDate, endDate);
   }
 
   /**
    * Read heart rate from Apple Health
    */
   async readAppleHealthHeartRate(startDate: Date, endDate: Date): Promise<number | null> {
-    if (Platform.OS !== 'ios') {
-      return null;
-    }
-
-    // TODO: Implement with expo-health or react-native-health
-    return null;
+    const heartRate = await AppleHealthProvider.readHeartRate(startDate, endDate);
+    return heartRate?.average || null;
   }
 
   /**
    * Read steps from Google Fit
    */
   async readGoogleFitSteps(startDate: Date, endDate: Date): Promise<number | null> {
-    if (Platform.OS !== 'android') {
-      return null;
-    }
-
-    // TODO: Implement with Google Fit API
-    return null;
+    return GoogleFitProvider.readSteps(startDate, endDate);
   }
 
   /**
    * Read heart rate from Google Fit
    */
   async readGoogleFitHeartRate(startDate: Date, endDate: Date): Promise<number | null> {
-    if (Platform.OS !== 'android') {
-      return null;
-    }
-
-    // TODO: Implement with Google Fit API
-    return null;
+    const heartRate = await GoogleFitProvider.readHeartRate(startDate, endDate);
+    return heartRate?.average || null;
   }
 }
 
