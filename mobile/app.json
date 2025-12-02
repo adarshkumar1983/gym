@@ -16,14 +16,22 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gym.mobile"
+      "bundleIdentifier": "com.gym.mobile",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "We need access to your health data to sync steps, heart rate, and workouts.",
+        "NSHealthUpdateUsageDescription": "We need access to write workout data to Apple Health."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.gym.mobile"
+      "package": "com.gym.mobile",
+      "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

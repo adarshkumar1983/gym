@@ -80,6 +80,18 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          href: null, // Hide from tab bar but keep accessible via route
+        }}
+      />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          href: null, // Hide from tab bar but keep accessible via route
+        }}
+      />
     </Tabs>
   );
 }

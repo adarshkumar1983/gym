@@ -67,7 +67,7 @@ export default function HomeScreen() {
 
   const quickActions = [
     { icon: 'barbell', label: 'Start Workout', color: '#007AFF', route: '/workouts' },
-    { icon: 'calendar', label: 'Schedule', color: '#FF3B30', route: '/schedule' },
+    { icon: 'calendar', label: 'Calendar', color: '#FF3B30', route: '/calendar' },
     { icon: 'stats-chart', label: 'Progress', color: '#34C759', route: '/progress' },
     { icon: 'nutrition', label: 'Nutrition', color: '#FF9500', route: '/nutrition' },
   ];
@@ -136,6 +136,7 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
+
         {/* Quick Actions Grid */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.gridContainer}>
@@ -149,9 +150,15 @@ export default function HomeScreen() {
                 style={styles.gridItem}
                 activeOpacity={0.7}
                 onPress={() => {
-                    // For demo purposes, since these routes might not exist yet
+                    // Navigate to appropriate screens
                     if (action.route === '/workouts') {
                         router.push('/(tabs)/exercises');
+                    } else if (action.route === '/calendar') {
+                        router.push('/(tabs)/calendar');
+                    } else if (action.route === '/progress') {
+                        router.push('/(tabs)/progress');
+                    } else if (action.route === '/nutrition') {
+                        router.push('/(tabs)/nutrition');
                     }
                 }}
               >
