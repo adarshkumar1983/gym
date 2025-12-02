@@ -17,6 +17,7 @@ import {
   addComment,
   getComments,
   searchUsers,
+  getSuggestedUsers,
 } from '../controllers/social.controller';
 
 const router = Router();
@@ -41,8 +42,9 @@ router.post('/posts/:postId/like', requireAuth, likePost);
 router.get('/posts/:postId/comments', getComments);
 router.post('/posts/:postId/comments', requireAuth, addComment);
 
-// Search
+// Search & Suggestions
 router.get('/users/search', requireAuth, searchUsers);
+router.get('/users/suggested', requireAuth, getSuggestedUsers);
 
 export default router;
 

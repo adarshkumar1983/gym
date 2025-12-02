@@ -95,3 +95,4 @@ PostSchema.index({ isPremium: 1 });
 
 export const Post = mongoose.model<IPost>('Post', PostSchema);
 
+

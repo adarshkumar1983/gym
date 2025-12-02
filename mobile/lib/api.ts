@@ -1256,6 +1256,36 @@ export const socialAPI = {
       };
     }
   },
+
+  getSuggestedUsers: async (): Promise<SocialResponse<{ users: User[] }>> => {
+    try {
+      const response = await apiClient.get('/api/social/users/suggested', {
+        withCredentials: true,
+      });
+
+      const responseData = response.data;
+      if (responseData.success && responseData.data) {
+        return {
+          success: true,
+          data: {
+            users: responseData.data.users || [],
+          },
+        };
+      }
+
+      return {
+        success: false,
+        error: { message: responseData.error?.message || 'Failed to get suggested users' },
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error?.message || error.message || 'Failed to get suggested users',
+        },
+      };
+    }
+  },
 };
 
 export default apiClient;

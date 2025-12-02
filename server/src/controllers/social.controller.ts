@@ -466,6 +466,80 @@ export const getComments = async (req: Request, res: Response): Promise<Response
 };
 
 /**
+ * Get suggested users (People you may know)
+ */
+export const getSuggestedUsers = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const userId = req.session?.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Unauthorized' },
+      });
+    }
+
+    // Get users that current user already follows
+    const following = await Follow.find({ followerId: userId }).select('followingId');
+    const followingIds = following.map(f => f.followingId);
+    followingIds.push(new mongoose.Types.ObjectId(userId)); // Exclude self
+
+    // Get users that follow people you follow (mutual connections)
+    const mutualConnections = await Follow.find({
+      followerId: { $in: followingIds },
+      followingId: { $nin: followingIds },
+    })
+      .select('followingId')
+      .limit(50);
+
+    const suggestedIds = [...new Set(mutualConnections.map(f => f.followingId.toString()))]
+      .slice(0, 10)
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    // If not enough suggestions, get random active users
+    if (suggestedIds.length < 5) {
+      const randomUsers = await User.find({
+        _id: { $nin: followingIds },
+      })
+        .select('name email image')
+        .limit(10 - suggestedIds.length);
+      
+      suggestedIds.push(...randomUsers.map(u => u._id));
+    }
+
+    const suggestedUsers = await User.find({
+      _id: { $in: suggestedIds },
+    })
+      .select('name email image')
+      .limit(10);
+
+    // Get follow status
+    const userIds = suggestedUsers.map(u => u._id);
+    const follows = await Follow.find({
+      followerId: userId,
+      followingId: { $in: userIds },
+    });
+
+    const followingMap = new Map(follows.map(f => [f.followingId.toString(), true]));
+
+    const usersWithFollowStatus = suggestedUsers.map(user => ({
+      ...user.toObject(),
+      isFollowing: followingMap.has(user._id.toString()),
+    }));
+
+    return res.json({
+      success: true,
+      data: { users: usersWithFollowStatus },
+    });
+  } catch (error: any) {
+    console.error('Error getting suggested users:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: error.message || 'Failed to get suggested users' },
+    });
+  }
+};
+
+/**
  * Search users
  */
 export const searchUsers = async (req: Request, res: Response): Promise<Response> => {

@@ -48,7 +48,7 @@ const THEME = {
   divider: '#2C2C2E',
 };
 
-const AnimatedFlatList = Reanimated.createAnimatedComponent(FlatList<Post>);
+const AnimatedFlatList = Reanimated.createAnimatedComponent(FlatList) as typeof FlatList<Post>;
 
 interface StoryGroup {
   user: User;
@@ -62,6 +62,7 @@ export default function SocialScreen() {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState<Post[]>([]);
   const [stories, setStories] = useState<StoryGroup[]>([]);
+  const [suggestedUsers, setSuggestedUsers] = useState<User[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,9 +77,10 @@ export default function SocialScreen() {
   const loadFeed = useCallback(async () => {
     try {
       setError(null);
-      const [feedResponse, storiesResponse] = await Promise.all([
+      const [feedResponse, storiesResponse, suggestedResponse] = await Promise.all([
         socialAPI.getFeed(),
         socialAPI.getStories(),
+        socialAPI.getSuggestedUsers(),
       ]);
 
       if (feedResponse.success && feedResponse.data) {
@@ -87,6 +89,10 @@ export default function SocialScreen() {
 
       if (storiesResponse.success && storiesResponse.data) {
         setStories(storiesResponse.data.stories);
+      }
+
+      if (suggestedResponse.success && suggestedResponse.data) {
+        setSuggestedUsers(suggestedResponse.data.users || []);
       }
     } catch (error: any) {
       console.error('Error loading feed:', error);
@@ -141,7 +147,7 @@ export default function SocialScreen() {
           )}
         </View>
         <Text style={styles.storyUsername} numberOfLines={1}>
-          {item.user.name.split(' ')[0]}
+          {item.user.name?.split(' ')[0] || item.user.email?.split('@')[0] || 'User'}
         </Text>
       </TouchableOpacity>
     );
@@ -172,7 +178,7 @@ export default function SocialScreen() {
               </View>
             )}
             <View>
-              <Text style={styles.postUsername}>{user.name}</Text>
+              <Text style={styles.postUsername}>{user.name || user.email?.split('@')[0] || 'User'}</Text>
               <Text style={styles.postTime}>
                 {new Date(item.createdAt).toLocaleDateString('en-US', {
                   month: 'short',
@@ -274,7 +280,7 @@ export default function SocialScreen() {
 
       <AnimatedFlatList
         data={posts}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item: Post) => item._id}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
@@ -295,6 +301,69 @@ export default function SocialScreen() {
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.storiesList}
+                />
+              </View>
+            )}
+
+            {/* People You May Know Section */}
+            {suggestedUsers.length > 0 && (
+              <View style={styles.suggestedSection}>
+                <View style={styles.suggestedHeader}>
+                  <Text style={styles.suggestedTitle}>People You May Know</Text>
+                  <TouchableOpacity onPress={() => setSuggestedUsers([])}>
+                    <Ionicons name="close" size={20} color={THEME.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={suggestedUsers}
+                  keyExtractor={(item) => item._id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.suggestedList}
+                  renderItem={({ item }: { item: User }) => (
+                    <TouchableOpacity
+                      style={styles.suggestedUserCard}
+                      onPress={() => {
+                        router.push({
+                          pathname: '/social/profile/[userId]',
+                          params: { userId: item._id },
+                        });
+                      }}
+                    >
+                      {item.image ? (
+                        <Image source={{ uri: item.image }} style={styles.suggestedAvatar} />
+                      ) : (
+                        <View style={styles.suggestedAvatarPlaceholder}>
+                          <Ionicons name="person" size={24} color={THEME.textSecondary} />
+                        </View>
+                      )}
+                      <Text style={styles.suggestedUserName} numberOfLines={1}>
+                        {item.name?.split(' ')[0] || item.email?.split('@')[0] || 'User'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.suggestedFollowButton}
+                        onPress={async (e) => {
+                          e.stopPropagation();
+                          const response = item.isFollowing
+                            ? await socialAPI.unfollowUser(item._id)
+                            : await socialAPI.followUser(item._id);
+                          if (response.success) {
+                            setSuggestedUsers(prev =>
+                              prev.map(u =>
+                                u._id === item._id
+                                  ? { ...u, isFollowing: !u.isFollowing }
+                                  : u
+                              )
+                            );
+                          }
+                        }}
+                      >
+                        <Text style={styles.suggestedFollowButtonText}>
+                          {item.isFollowing ? 'Following' : 'Follow'}
+                        </Text>
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
                 />
               </View>
             )}
@@ -504,6 +573,73 @@ const styles = StyleSheet.create({
   },
   emptyStateButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  suggestedSection: {
+    backgroundColor: THEME.card,
+    marginTop: 16,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: THEME.divider,
+  },
+  suggestedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  suggestedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.text,
+  },
+  suggestedList: {
+    paddingHorizontal: 16,
+  },
+  suggestedUserCard: {
+    width: 100,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  suggestedAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: THEME.primary,
+  },
+  suggestedAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: THEME.divider,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: THEME.primary,
+  },
+  suggestedUserName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: THEME.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  suggestedFollowButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: THEME.primary,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  suggestedFollowButtonText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
   },
